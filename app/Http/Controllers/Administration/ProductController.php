@@ -1,11 +1,13 @@
 <?php
 
 namespace App\Http\Controllers\Administration;
-
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\DestroySelectedRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Product;
+use Spatie\Browsershot\Browsershot;
 class ProductController extends Controller
 {
     /**
@@ -30,9 +32,19 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        //
+        $validatedData = $request->validated();
+        $normalizedName = strtolower($validatedData['name']);
+        $existingProduct = Product::whereRaw('LOWER(name) = ?', [$normalizedName])->first();
+
+        if ($existingProduct) {
+            return redirect()->back()->withErrors([
+                'name' => 'Ya existe un producto con este nombre.'
+            ])->withInput();
+        }
+        Product::create($validatedData);
+        return redirect()->route('products')->with('success', 'Producto creado correctamente.');
     }
 
     /**
@@ -40,7 +52,11 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $product = Product::findOrFail($id);
+        
+        return Inertia::render('product/show', [
+            'product' => $product,
+        ]);
     }
 
     /**
@@ -48,15 +64,30 @@ class ProductController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $product = Product::findOrFail($id);
+        return Inertia::render('product/edit', [
+            'product' => $product,
+        ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(StoreProductRequest $request, $id)
     {
-        //
+        $validatedData = $request->validated();
+        $product = Product::findOrFail($id);
+        $normalizedName = strtolower($validatedData['name']);
+        $existingProduct = Product::whereRaw('LOWER(name) = ?', [$normalizedName])
+            ->where('id', '!=', $id)
+            ->first();
+        if ($existingProduct) {
+            return redirect()->back()->withErrors([
+                'name' => 'Ya existe un producto con este nombre.'
+            ])->withInput();
+        }
+        $product->update($validatedData);
+        return redirect()->route('products')->with('success', 'Producto actualizado correctamente.');
     }
 
     /**
@@ -64,6 +95,24 @@ class ProductController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $product = Product::findOrFail($id);
+        $product->delete();
+
+        return redirect()->route('products')->with('success', 'Producto eliminado correctamente.');
+    }
+    /**
+     * Delete multiple selected resources.
+     */
+    public function destroySelected(DestroySelectedRequest $request)
+    {
+        $validatedData = $request->validated(); 
+    
+        $count = count($validatedData['ids']);
+        Product::whereIn('id', $validatedData['ids'])->delete();
+    
+        return redirect()->route('products')->with('success', $count > 1
+            ? "{$count} productos eliminados correctamente."
+            : "Producto eliminado correctamente."
+        );
     }
 }

@@ -14,6 +14,13 @@ import {DataTableRowSelectionHeader} from "@/components/table/datatable-row-sele
 import {DataTableRowSelectionCell} from "@/components/table/datatable-row-selection-cell";
 import { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
+import { router } from "@inertiajs/react";
+import { useState } from "react";
+import { DeleteDialog } from "../dialogs/delete-dialog";
+
+const handleEditResource = (product: Product) => {
+  router.get(`/administration/products/${product.id}/edit`);
+}
 
 export const columns: ColumnDef<Product>[] = [
   {
@@ -94,29 +101,54 @@ export const columns: ColumnDef<Product>[] = [
   {
     id: "actions",
     enableHiding: false,
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Abrir menú</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-          <DropdownMenuItem
-            onClick={() =>
-              navigator.clipboard.writeText(String(row.original.id))
-            }
-          >
-            Copiar ID
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Ver</DropdownMenuItem>
-          <DropdownMenuItem>Editar</DropdownMenuItem>
-          <DropdownMenuItem>Eliminar</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
+    cell: ({ row }) => {
+      const product = row.original
+      const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+      const handleDeleteResource = () => {
+        router.delete(`/administration/products/${product.id}/delete`);
+        setIsDeleteDialogOpen(false);
+      };
+      const handleShowResource= ()=>{
+          router.get(`/administration/products/${product.id}/show`)
+      }
+      return (
+         <>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Abrir menú</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => navigator.clipboard.writeText("hola")}
+                >
+                  Copiar ID
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleShowResource}>Ver</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditResource(row.original)}>
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)}>
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
+          <DeleteDialog
+            description="Esta acción eliminará el producto permanentemente. ¿Deseas continuar?"
+            isOpen={isDeleteDialogOpen}
+            onClose={() => setIsDeleteDialogOpen(false)}
+            onConfirm={handleDeleteResource}
+          />
+         </>
+      )
+    },
+  }
 ];
+
+function setIsDeleteDialogOpen(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}

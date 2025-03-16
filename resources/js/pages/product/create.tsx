@@ -1,13 +1,15 @@
-import { PRODUCT_CREATE_BREADCRUMBS } from '@/constants/breadcrumbs/products';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
+import AppLayout from '@/layouts/app-layout';
+import { ProductForm } from '@/components/products/product-form';
+import { PRODUCT_CREATE_BREADCRUMBS } from '@/constants/breadcrumbs';
 
 function ProductCreatePage() {
     return (
         <AppLayout breadcrumbs={PRODUCT_CREATE_BREADCRUMBS}>
             <Head title="Productos" />
-            create
+            <section className='px-4 py-6'>
+                <ProductForm />
+            </section>
         </AppLayout>
     );
 }

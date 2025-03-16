@@ -40,6 +40,13 @@ export interface User {
     updated_at: string;
     [key: string]: unknown;
 }
+export interface Flash {
+    message: string;
+    success?: string;
+    error?: string;
+    warning?: string;
+    info?: string;
+}
 export interface Product {
     id: number;
     name: string;
