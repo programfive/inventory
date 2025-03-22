@@ -47,6 +47,14 @@ export interface Flash {
     warning?: string;
     info?: string;
 }
+export interface Notification {
+    id: string
+    title: string
+    description: string
+    timestamp: string
+    read: boolean
+    type: NotificationType
+  }
 export interface Product {
     id: number;
     name: string;
@@ -56,4 +64,17 @@ export interface Product {
     is_excluded: boolean;
     created_at: string | Date;
     updated_at: string | Date;
+}
+export interface Supplier {
+    id: number; 
+    name: string; 
+    address: string | null; 
+    phone: string | null; 
+    email: string | null; 
+    contact_person: string | null; 
+    nit: string | null; 
+    notes: string | null; 
+    is_active: boolean; 
+    created_at: string | Date; 
+    updated_at: string | Date; 
 }

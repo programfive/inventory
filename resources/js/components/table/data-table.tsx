@@ -1,20 +1,10 @@
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   ColumnDef,
   ColumnFiltersState,
   PaginationState,
   RowSelectionState,
   SortingState,
   VisibilityState,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -22,27 +12,16 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import DatatablePagination from "@/components/table/datatable-pagination";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
-import { Settings2, ChevronsUpDown, Search, Download, Plus, CalendarIcon, Trash } from "lucide-react";
-import { format, isAfter, isBefore, isEqual, parseISO } from "date-fns"
-import { DateRange } from "react-day-picker"
-import { es } from 'date-fns/locale'; 
-import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { useMemo, useState, useCallback } from "react";
+import { isAfter, isBefore, isEqual, parseISO } from "date-fns";
+import { DateRange } from "react-day-picker";
 import { DeleteDialog } from "@/components/dialogs/delete-dialog";
+import { ExportDialog } from "../dialogs/export-dialog";
+import { DataTableActions } from "./data-table-actions";
+import { DataTableFilters } from "./data-table-filters";
+import { DataTableContent } from "./data-table-content";
+
+export type ExportFormat = "pdf" | "excel" | "json";
 
 interface DatatableProps<TData, TValue> {
   data: TData[];
@@ -51,9 +30,9 @@ interface DatatableProps<TData, TValue> {
   globalFilterColumn?: string;
   dateColumn?: keyof TData; 
   translations: Record<string, string>;
-  handleExport?:()=>void;
-  newResource?:()=>void;
-  onDeleteSelected?: (selectedItems: TData[]) => void
+  onExport?: (params:URLSearchParams) => void;
+  newResource?: () => void;
+  onDeleteSelected?: (selectedItems: TData[]) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -63,7 +42,7 @@ export function DataTable<TData, TValue>({
   globalFilterColumn,
   dateColumn,
   translations,
-  handleExport,
+  onExport,
   newResource,
   onDeleteSelected
 }: DatatableProps<TData, TValue>) {
@@ -71,22 +50,20 @@ export function DataTable<TData, TValue>({
     pageSize: 10,
     pageIndex: 0,
   });
-  
   const [date, setDate] = useState<DateRange | undefined>(undefined);
-  const [filteredData, setFilteredData] = useState<TData[]>(data);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
-  useEffect(() => {
+  const filteredData = useMemo(() => {
     if (!dateColumn || !date || !date.from) {
-      setFilteredData(data);
-      return;
+      return data;
     }
 
-    const filtered = data.filter((item) => {
+    return data.filter((item) => {
       const itemDate = item[dateColumn];
       if (!itemDate) return false;
       
@@ -96,15 +73,11 @@ export function DataTable<TData, TValue>({
           ? itemDate 
           : new Date(itemDate as any);
       
-      const isInRange = (
+      return (
         (date.from && (isAfter(itemDateObj, date.from) || isEqual(itemDateObj, date.from))) &&
         (!date.to || (isBefore(itemDateObj, date.to) || isEqual(itemDateObj, date.to)))
       );
-      
-      return isInRange;
     });
-    
-    setFilteredData(filtered);
   }, [data, date, dateColumn]);
 
   const table = useReactTable({
@@ -127,29 +100,44 @@ export function DataTable<TData, TValue>({
       rowSelection,
     },
   });
-  const hasSelectedItems = table.getFilteredSelectedRowModel().rows.length > 0;
-  const translateColumnName = (columnId: string): string => {
-    return translations[columnId] || columnId;
-  };
 
-  const clearDateFilter = () => {
+  const clearDateFilter = useCallback(() => {
     setDate(undefined);
-  };
-  const getSelectedItems = () => {
-    const selectedRowIndices = Object.keys(rowSelection).map(Number)
-    const selectedItems = selectedRowIndices.map(index => data[index])
-    
-    return selectedItems
-  }
-  const handleDeleteSelected = () => {
+  }, []);
+
+  const getSelectedItems = useCallback(() => {
+    const selectedRowIndices = Object.keys(rowSelection).map(Number);
+    return selectedRowIndices.map(index => data[index]);
+  }, [rowSelection, data]);
+
+  const handleDeleteSelected = useCallback(() => {
     const selectedItems = getSelectedItems();
     if (onDeleteSelected) {
       onDeleteSelected(selectedItems);
     }
     setIsDeleteDialogOpen(false);
-    
     setRowSelection({});
-  }
+  }, [getSelectedItems, onDeleteSelected]);
+
+  const handleExportClick = useCallback(() => {
+    setIsExportDialogOpen(true); 
+  }, []);
+
+  const handleExportData = useCallback((format: ExportFormat, startDate?: Date, endDate?: Date) => {
+    if (onExport) {
+      const params = new URLSearchParams();
+      params.append('format', format);
+      if (startDate) {
+        params.append('startDate', startDate.toISOString().split('T')[0]);
+      }
+      if (endDate) {
+        params.append('endDate', endDate.toISOString().split('T')[0]);
+      }
+      onExport(params);
+    }
+    setIsExportDialogOpen(false);
+  }, [onExport]);
+
   return (
     <>
       <DeleteDialog 
@@ -158,171 +146,40 @@ export function DataTable<TData, TValue>({
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={handleDeleteSelected}
       />
-      <div className="space-y-4 ">
+      
+      <ExportDialog
+        open={isExportDialogOpen}
+        setOpen={setIsExportDialogOpen}
+        onExport={handleExportData}
+        title="Exportar datos"
+        description="Selecciona el formato y rango de fechas para exportar los datos."
+        buttonText="Exportar"
+        exportFormats={["pdf", "excel", "json"]}
+      />
+      
+      <div className="space-y-4">
         <div className="flex items-center lg:flex-row-reverse gap-2 justify-between flex-wrap lg:flex-nowrap">
-          <div className="flex items-center gap-2 ml-auto">
-            {hasSelectedItems && (
-              <Button onClick={()=>setIsDeleteDialogOpen(true)} variant="destructive">
-                <Trash size={18} className="m-auto lg:mr-2" />
-                <span className="hidden lg:block">Eliminar ({table.getFilteredSelectedRowModel().rows.length})</span>
-              </Button>
-            )}
-            {newResource && (
-              <Button variant="outline" onClick={newResource}>
-                <Plus size={18} className="m-auto lg:mr-2" />
-                <span className="hidden lg:block">Nuevo</span>
-              </Button>
-            )}
-            
-            {handleExport && (
-              <Button variant="outline" onClick={handleExport}>
-                <Download size={18} className=" m-auto lg:mr-2" />
-                <span className="hidden lg:block">Exportar</span>
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Settings2 size={18} className=" m-auto lg:mr-2" />
-                  <div className="hidden md:flex gap-2 items-center">
-                    Visualizar
-                    <ChevronsUpDown size={14} />
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {translateColumnName(column.id)}
-                      </DropdownMenuCheckboxItem>
-                    );
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="flex w-full md:flex-row-reverse gap-2">
-          {globalFilterColumn && (
-            <Input
-              startIcon={Search}
-              placeholder="Buscar..."
-              value={
-                (table
-                  .getColumn(globalFilterColumn)
-                  ?.getFilterValue() as string) ?? ""
-              }
-              onChange={(event) =>
-                table
-                  .getColumn(globalFilterColumn)
-                  ?.setFilterValue(event.target.value)
-              }
-              className="w-full lg:max-w-md"
-            />
-            
-          )}
-          {dateColumn && (
-            <div className="flex gap-2 items-center">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn(
-                      "justify-start text-left font-normal")}
-                  >
-                    <CalendarIcon size={18} className=" m-auto lg:mr-2" />
-                    {date?.from ? (
-                      date.to ? (
-                        <>
-                          {format(date.from, "dd/MM/yyyy")} -{" "}
-                          {format(date.to, "dd/MM/yyyy")}
-                        </>
-                      ) : (
-                        format(date.from, "dd/MM/yyyy")
-                      )
-                    ) : (
-                      <span className="hidden lg:block">Filtrar por fecha</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    locale={es}
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                  />
-                  {date && (
-                    <div className="p-3 border-t border-border">
-                      <Button variant="ghost" size="sm" onClick={clearDateFilter}>Limpiar filtro</Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-          </div>
+          <DataTableActions 
+            table={table}
+            translations={translations}
+            newResource={newResource}
+            onExport={handleExportClick}
+            onDeleteSelected={() => setIsDeleteDialogOpen(true)}
+          />
+          <DataTableFilters 
+            table={table}
+            globalFilterColumn={globalFilterColumn}
+            dateColumn={dateColumn}
+            date={date}
+            onDateChange={setDate}
+            onClearDateFilter={clearDateFilter}
+          />
         </div>
-
-        <div className="rounded-md border grid grid-cols-1 w-full overflow-x-auto">
-          <Table>
-            {caption && <TableCaption>{caption}</TableCaption>}
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No hay resultados.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTableContent 
+          table={table}
+          columns={columns}
+          caption={caption}
+        />
         <DatatablePagination table={table} />
       </div>
     </>

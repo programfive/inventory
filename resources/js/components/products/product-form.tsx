@@ -44,12 +44,14 @@ export function ProductForm({ product, isEditing = false, viewOnly = false }: Pr
     });
 
     useEffect(() => {
-        if (errors.name) {
-        form.setError("name", {
+      if (errors) {
+        Object.keys(errors).forEach((field) => {
+          form.setError(field as keyof ProductFormValues, {
             type: "manual",
-            message: errors.name,
+            message: errors[field],
+          });
         });
-        }
+      }
     }, [errors, form]);
 
     function onSubmit(values: ProductFormValues) {

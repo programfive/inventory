@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\DestroySelectedRequest;
+use App\Http\Requests\Destroy\DestroySelectedProductRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,14 +35,6 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request)
     {
         $validatedData = $request->validated();
-        $normalizedName = strtolower($validatedData['name']);
-        $existingProduct = Product::whereRaw('LOWER(name) = ?', [$normalizedName])->first();
-
-        if ($existingProduct) {
-            return redirect()->back()->withErrors([
-                'name' => 'Ya existe un producto con este nombre.'
-            ])->withInput();
-        }
         Product::create($validatedData);
         return redirect()->route('products')->with('success', 'Producto creado correctamente.');
     }
@@ -77,15 +69,6 @@ class ProductController extends Controller
     {
         $validatedData = $request->validated();
         $product = Product::findOrFail($id);
-        $normalizedName = strtolower($validatedData['name']);
-        $existingProduct = Product::whereRaw('LOWER(name) = ?', [$normalizedName])
-            ->where('id', '!=', $id)
-            ->first();
-        if ($existingProduct) {
-            return redirect()->back()->withErrors([
-                'name' => 'Ya existe un producto con este nombre.'
-            ])->withInput();
-        }
         $product->update($validatedData);
         return redirect()->route('products')->with('success', 'Producto actualizado correctamente.');
     }
@@ -103,7 +86,7 @@ class ProductController extends Controller
     /**
      * Delete multiple selected resources.
      */
-    public function destroySelected(DestroySelectedRequest $request)
+    public function destroySelected(DestroySelectedProductRequest $request)
     {
         $validatedData = $request->validated(); 
     

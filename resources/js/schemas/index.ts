@@ -40,3 +40,13 @@ export const productSchema = z.object({
     }),
   is_excluded: z.boolean().default(false),
 });
+export const supplierSchema = z.object({
+  name: z.string().min(1, "El nombre es obligatorio").max(100, "El nombre no puede exceder 100 caracteres"),
+  address: z.string().min(1, "La dirección es obligatoria").max(255, "La dirección no puede exceder 255 caracteres"), // Obligatorio
+  phone: z.string().min(1, "El teléfono es obligatorio").max(20, "El teléfono no puede exceder 20 caracteres"), // Ahora es obligatorio
+  email: z.string().min(1, "El correo electrónico es obligatorio").email("Correo electrónico inválido").max(100, "El correo no puede exceder 100 caracteres").optional(),
+  contact_person: z.string().min(1, "La persona de contacto es requerida").max(100, "La persona de contacto no puede exceder 100 caracteres"), // Obligatorio
+  nit: z.string().min(1, "El NIT es obligatorio").max(50, "El NIT no puede exceder 50 caracteres"), // Obligatorio
+  notes: z.string().optional(),
+  is_active: z.boolean(),
+});
